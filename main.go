@@ -18,7 +18,7 @@ func SetupRouter() *mux.Router {
 	r.HandleFunc("/api/v1/register", RegisterHandler).Methods("POST")
 	r.HandleFunc("/api/v1/login", LoginHandler).Methods("POST")
 	r.HandleFunc("/api/v1/urlMapping", UrlMappingHandler).Methods("POST")
-	r.HandleFunc("/api/v1/urlMapping/{id}/details", UrlMappingDetailsHandler).Methods("GET")
+	r.HandleFunc("/api/v1/urlMapping/{id}/details", UrlMappingDetailsPageHandler).Methods("GET")
 	r.HandleFunc("/{id}", RedirectHandler).Methods("GET")
 
 	return r
