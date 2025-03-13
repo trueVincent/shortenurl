@@ -18,6 +18,8 @@ type User struct {
 	UpdatedOn time.Time `gorm:"autoUpdateTime"`
 }
 
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
 type URLMapping struct {
 	ID        string `gorm:"size:6;uniqueIndex;not null"`
 	OriginURL string `gorm:"not null"`
@@ -38,7 +40,7 @@ type URLMappingActionRecord struct {
 }
 
 func InitializeDatabase() {
-	dsn := "host=localhost user=postgres password=postgres dbname=url_shortener port=5432 sslmode=disable"
+	dsn := "host=localhost user=postgres password=postgres dbname=shortenurl port=5432"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)

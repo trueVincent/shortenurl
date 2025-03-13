@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShortenURL - URL Details</title>
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+    <header>
+        <h1><a href="/">ShortenURL</a></h1>
+        {{ .Error }}
+        <div id="user-info">
+            <span>Welcome, {{ .Username }}</span>
+            <form id="logout-form" method="POST" action="/internal/logout">
+                <button type="submit">Logout</button>
+            </form>
+        </div>
+    </header>
+    <main>
+        <h2>URL Details</h2>
+        <p><strong>Original URL:</strong> {{ .UrlMapping.OriginURL }}</p>
+        <p><strong>Shortened URL:</strong> http://localhost:8080/{{ .UrlMapping.ID }}</p>
+        <p><strong>Click Count:</strong> {{ .UrlMappingActionRecord.ClickCount }}</p>
+        <p><strong>Last Access:</strong> {{ .UrlMappingActionRecord.LastAccess }}</p>
+    </main>
+    <script src="static/script.js"></script>
+</body>
+</html>

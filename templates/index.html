@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShortenURL</title>
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+    <header>
+        <h1><a href="/">ShortenURL</a></h1>
+        {{ .Error }}
+        <div id="user-info">
+            {{ if .Login }}
+                <span>Welcome, {{ .Username }}</span>
+                <form id="logout-form" method="POST" action="/internal/logout">
+                    <button type="submit">Logout</button>
+                </form>
+            {{ else }}
+                <form id="login-form" method="POST" action="/internal/login">
+                    <input type="text" name="username" placeholder="Username" required>
+                    <input type="password" name="password" placeholder="Password" required>
+                    <button type="submit">Login</button>
+                </form>
+                <a href="/internal/register">Register</a>
+            {{ end }}
+        </div>
+    </header>
+    <main>
+        {{ if .Login }}
+            <form id="shorten-form" method="POST" action="/internal/urlMapping">
+                <label for="long-url">Enter URL to shorten:</label>
+                <input type="url" id="long-url" name="originURL" required>
+                <button type="submit">Shorten</button>
+            </form>
+            <div id="shortened-url"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Original URL</th>
+                        <th>Shortened URL</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .UrlList }}
+                        <tr>
+                            <td>{{ .OriginURL }}</td>
+                            <td><a href="/{{ .ID }}" target="_blank">http://localhost:8080/{{ .ID }}</a></td>
+                            <td><a href="/internal/urlMapping/{{ .ID }}/details">Details</a></td>
+                        </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        {{ end }}
+    </main>
+    <script src="static/script.js"></script>
+</body>
+</html>

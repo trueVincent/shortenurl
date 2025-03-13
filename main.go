@@ -14,11 +14,12 @@ func SetupRouter() *mux.Router {
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	r.HandleFunc("/", HomeHandler).Methods("GET")
-	r.HandleFunc("/api/v1/register", RegisterPageHandler).Methods("GET")
-	r.HandleFunc("/api/v1/register", RegisterHandler).Methods("POST")
-	r.HandleFunc("/api/v1/login", LoginHandler).Methods("POST")
-	r.HandleFunc("/api/v1/urlMapping", UrlMappingHandler).Methods("POST")
-	r.HandleFunc("/api/v1/urlMapping/{id}/details", UrlMappingDetailsPageHandler).Methods("GET")
+	r.HandleFunc("/internal/register", RegisterPageHandler).Methods("GET")
+	r.HandleFunc("/internal/register", RegisterHandler).Methods("POST")
+	r.HandleFunc("/internal/login", LoginHandler).Methods("POST")
+	r.HandleFunc("/internal/logout", LogoutHandler).Methods("POST")
+	r.HandleFunc("/internal/urlMapping", UrlMappingHandler).Methods("POST")
+	r.HandleFunc("/internal/urlMapping/{id}/details", UrlMappingDetailsPageHandler).Methods("GET")
 	r.HandleFunc("/{id}", RedirectHandler).Methods("GET")
 
 	return r
@@ -26,6 +27,7 @@ func SetupRouter() *mux.Router {
 
 func main() {
 	r := SetupRouter()
+	InitializeDatabase()
 
 	// Start server
 	port := ":8080"

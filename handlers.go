@@ -19,19 +19,31 @@ import (
 
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET")))
 
-func RenderTemplate(w http.ResponseWriter, tmpl string, data ...interface{}) {
+func RenderTemplate(w http.ResponseWriter, r *http.Request, tmpl string, data map[string]interface{}) {
 	t, err := template.ParseFiles("templates/" + tmpl)
 	if err != nil {
 		log.Printf("Template error: %v", err)
 		http.Error(w, "Error loading template", http.StatusInternalServerError)
 		return
 	}
-	t.Execute(w, data)
+
+	session, err := store.Get(r, "shortenurl_session")
+	login := session.Values["login"]
+	if login == nil {
+		login = false
+	}
+	data["Login"] = login.(bool)
+	data["Username"] = session.Values["username"].(string)
+
+	if err := t.Execute(w, data); err != nil {
+		log.Printf("Template execute error: %v", err)
+		http.Error(w, "Template execute error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: index.html has title, login btn, register link, shorten btn, url list
-	data := map[string]interface{}{}
+	data := make(map[string]interface{})
 
 	session, err := store.Get(r, "shortenurl_session")
 	if err != nil {
@@ -44,25 +56,27 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 		userID, ok := session.Values["userID"].(uint)
 		if ok {
 			var urlList []URLMapping
-			if err := DB.Where("user_id = ?", userID).Take(&urlList).Error; err != nil {
+			if err := DB.Where("user_id = ?", userID).Find(&urlList).Error; err != nil {
 				log.Printf("Database error: %v", err)
 				http.Error(w, "Database error", http.StatusInternalServerError)
 				return
 			}
 
-			data["urlList"] = urlList
+			data["UrlList"] = urlList
 		}
+	} else {
+		session.Values["login"] = false
+		session.Values["username"] = ""
+		session.Save(r, w)
 	}
-	RenderTemplate(w, "index.html", data)
+	RenderTemplate(w, r, "index.html", data)
 }
 
 func RegisterPageHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: register.html has register btn
-	RenderTemplate(w, "register.html")
+	RenderTemplate(w, r, "register.html", make(map[string]interface{}))
 }
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Handle registration logic (e.g., save user to DB), the password need to be handled carefully
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := strings.TrimSpace(r.FormValue("password"))
 	if username == "" || password == "" {
@@ -78,8 +92,8 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if existUserCnt != 0 {
 		data := map[string]interface{}{}
-		data["error"] = "username already used"
-		RenderTemplate(w, "register.html", data)
+		data["Error"] = "username already used"
+		RenderTemplate(w, r, "register.html", data)
 		return
 	}
 
@@ -101,27 +115,41 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Handle login logic (e.g., authenticate user), update session
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
 	var user User
 	if err := DB.Where("username = ?", username).First(&user).Error; err != nil {
 		log.Printf("Invalid username or password %v", err)
-		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		data := make(map[string]interface{})
+		data["Error"] = "Invalid username or password"
+		RenderTemplate(w, r, "index.html", data)
 		return
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		log.Printf("Invalid username or password %v", err)
-		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		data := make(map[string]interface{})
+		data["Error"] = "Invalid username or password"
+		RenderTemplate(w, r, "index.html", data)
 		return
 	}
 
 	session, _ := store.Get(r, "shortenurl_session")
 	session.Values["login"] = true
+	session.Values["username"] = username
 	session.Values["userID"] = user.ID
 	session.Save(r, w)
 
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, "shortenurl_session")
+	session.Values["login"] = false
+	session.Values["username"] = ""
+	session.Values["userID"] = ""
+	session.Save(r, w)
+	
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -140,7 +168,21 @@ func UrlMappingHandler(w http.ResponseWriter, r *http.Request) {
 
 	originURL := strings.TrimSpace(r.FormValue("originURL"))
 
-	newURLMapping := URLMapping{OriginURL: originURL, UserID: session.Values["userID"].(uint)}
+	var randomID string
+	for randomID == "" {
+		randomID = randomString(6)
+		var existUrlMappingCnt int64
+		if err := DB.Model(&URLMapping{}).Where("ID = ?", randomID).Count(&existUrlMappingCnt).Error; err != nil {
+			log.Printf("Database error: %v", err)
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+		if existUrlMappingCnt != 0 {
+			randomID = ""
+		}
+	}
+
+	newURLMapping := URLMapping{ID: randomID, OriginURL: originURL, UserID: session.Values["userID"].(uint)}
 	if err := DB.Create(&newURLMapping).Error; err != nil {
 		log.Printf("Error creating url mapping: %v", err)
 		http.Error(w, "Error creating url mapping", http.StatusInternalServerError)
@@ -151,13 +193,12 @@ func UrlMappingHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error creating url mapping action record: %v", err)
 		http.Error(w, "Error creating url mapping action record", http.StatusInternalServerError)
 		return
-	} 
+	}
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func UrlMappingDetailsPageHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: urlMapping-details.html has url, count, last_access
 	session, err := store.Get(r, "shortenurl_session")
 	if err != nil {
 		log.Printf("Session error: %v", err)
@@ -165,7 +206,7 @@ func UrlMappingDetailsPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if session.Values["login"] == false {
+	if login, ok := session.Values["login"].(bool); !ok || !login {
 		http.Error(w, "Shorten URL after login", http.StatusUnauthorized)
 		return
 	}
@@ -173,7 +214,7 @@ func UrlMappingDetailsPageHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	urlMappingID := vars["id"]
 	var urlMapping URLMapping
-	if err := DB.Where("ID = ?", urlMappingID).Take(urlMapping).Error; err != nil {
+	if err := DB.Where("ID = ?", urlMappingID).Take(&urlMapping).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, "URL not found", http.StatusNotFound)
 			return
@@ -183,7 +224,7 @@ func UrlMappingDetailsPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var urlMappingActionRecord URLMappingActionRecord
-	if err := DB.Where("URLMappingID = ?", urlMappingID).Take(&urlMappingActionRecord).Error; err != nil {
+	if err := DB.Where("url_mapping_id = ?", urlMappingID).Take(&urlMappingActionRecord).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, "URL action record not found", http.StatusNotFound)
 			return
@@ -194,10 +235,10 @@ func UrlMappingDetailsPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{}
-	data["urlMapping"] = urlMapping
-	data["urlMappingActionRecord"] = urlMappingActionRecord
+	data["UrlMapping"] = urlMapping
+	data["UrlMappingActionRecord"] = urlMappingActionRecord
 
-	RenderTemplate(w, "urlMapping-details.html", data)
+	RenderTemplate(w, r, "urlMapping-details.html", data)
 }
 
 func RedirectHandler(w http.ResponseWriter, r *http.Request) {
@@ -224,7 +265,7 @@ func RedirectHandler(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer wg.Done()
 		var urlMappingActionRecord URLMappingActionRecord
-		if err := DB.Where("URLMappingID = ?", urlMappingID).Take(&urlMappingActionRecord).Error; err != nil {
+		if err := DB.Where("url_mapping_id = ?", urlMappingID).Take(&urlMappingActionRecord).Error; err != nil {
 			errChan <- err
 			return
 		}
