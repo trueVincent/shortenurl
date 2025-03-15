@@ -5,4 +5,4 @@
 - User Authentication.  
 
 ## Demo  
-![Demo Video](https://www.youtube.com/watch?v=BEi3t45F4Qs)  
+[![Demo Video](https://img.youtube.com/vi/BEi3t45F4Qs/0.jpg)](https://www.youtube.com/watch?v=BEi3t45F4Qs)
