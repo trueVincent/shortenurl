@@ -16,7 +16,7 @@ func Register(username string, password string) (User, error) {
 		return User{}, err
 	}
 	if existUserCnt != 0 {
-		return User{}, errors.New("username already exist")
+		return User{}, errors.New("username already exists")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
