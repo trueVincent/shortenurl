@@ -1,10 +1,8 @@
-# ShortenURL
-cmd/main.go: Entry point  
-handlers: HTTP handlers(controllers)  
-services: Business logic layer  
-repositories: Database interation layer  
-models: Data structures  
-middlewares: Custom middlewares(Auth, Logging, etc.)  
-utils: Utility functions/helpers  
-migrations: Database migration scripts  
-web: Static assets(HTML, CSS, JS)  
+# ShortenURL  
+## Features  
+- Shorten URL.  
+- Trace click count and last access. And use goruntine to boost the processing time when redirecting.  
+- User Authentication.  
+
+## Demo  
+![Demo Video](https://www.youtube.com/watch?v=BEi3t45F4Qs)  
